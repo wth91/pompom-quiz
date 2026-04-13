@@ -149,6 +149,7 @@
 </div>
 
 <script>
+    let lastCharName = "";
     // 角色資料庫 (檔名對應您上傳的圖片)
     const characters = [
         { name: '布丁狗', src: '2.jpg' },
@@ -205,27 +206,31 @@
         currentQuestionIndex++;
         updateStats();
 
-        // 1. 隨機抽選一位角色作為正確答案
-        const targetChar = characters[Math.floor(Math.random() * characters.length)];
+        // --- 優化後的隨機邏輯 ---
+        let targetChar;
+        do {
+            // 隨機抽選一位角色
+            targetChar = characters[Math.floor(Math.random() * characters.length)];
+        } while (targetChar.name === lastCharName); // 如果跟上一題一樣，就重新抽一次
+
+        // 更新「上一題紀錄」為現在這一題
+        lastCharName = targetChar.name;
+        
         currentCorrectAnswer = targetChar.name;
         questionImage.src = targetChar.src;
+        // -----------------------
 
-        // 2. 準備選項：1個正確答案 + 3個錯誤答案
+        // 剩餘的選項準備邏輯保持不變...
         let options = [targetChar.name];
-        
-        // 過濾掉正確答案，剩下的角色洗牌
         let wrongCharacters = characters.filter(c => c.name !== targetChar.name);
         wrongCharacters = wrongCharacters.sort(() => 0.5 - Math.random());
         
-        // 抓取前 3 個當作錯誤選項
         for (let i = 0; i < 3; i++) {
             options.push(wrongCharacters[i].name);
         }
 
-        // 3. 把 4 個選項再次洗牌，打亂正確答案的位置
         options = options.sort(() => 0.5 - Math.random());
 
-        // 4. 渲染按鈕到畫面上
         optionsContainer.innerHTML = '';
         options.forEach(optionName => {
             const btn = document.createElement('button');
