@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>布丁狗好友猜猜樂</title>
+    <style>
+        :root {
+            --primary-color: #FFCC00; /* 布丁狗黃 */
+            --text-color: #5C4033; /* 巧克力深咖啡 */
+            --bg-color: #FFF9E6;
+            --btn-hover: #FFB300;
+            --correct-color: #4CAF50;
+            --wrong-color: #F44336;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            text-align: center;
+        }
+
+        #game-container {
+            background-color: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+            padding: 30px;
+            width: 90%;
+            max-width: 500px;
+            border: 4px solid var(--primary-color);
+        }
+
+        h1 {
+            color: var(--text-color);
+            font-size: 28px;
+            margin-bottom: 10px;
+        }
+
+        /* 遊戲首頁、遊戲中、結果頁的切換 */
+        .screen { display: none; }
+        .screen.active { display: block; }
+
+        /* 圖片遮罩設定 */
+        .image-wrapper {
+            width: 100%;
+            max-width: 300px;
+            margin: 0 auto 20px auto;
+            border-radius: 15px;
+            background-color: var(--primary-color);
+            /* 使用 clip-path 裁切掉原圖上下多餘的文字 (可依實際圖片比例微調百分比) */
+            clip-path: inset(15% 0 25% 0); 
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #question-image {
+            width: 100%;
+            display: block;
+        }
+
+        /* 選項按鈕設定 */
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: var(--text-color);
+            border: none;
+            padding: 15px 20px;
+            font-size: 18px;
+            font-weight: bold;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        button:hover {
+            background-color: var(--btn-hover);
+            transform: translateY(-2px);
+        }
+
+        button:disabled {
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        button.correct { background-color: var(--correct-color); color: white; }
+        button.wrong { background-color: var(--wrong-color); color: white; }
+
+        .stats {
+            display: flex;
+            justify-content: space-between;
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px dashed var(--primary-color);
+        }
+
+        .huge-score {
+            font-size: 60px;
+            color: var(--correct-color);
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="start-screen" class="screen active">
+        <h1>🍮 布丁狗與好友猜猜樂 🍮</h1>
+        <p>看看圖中的甜點好朋友是誰？</p>
+        <p>總共 10 題，滿分 100 分！</p>
+        <button onclick="startGame()" style="margin-top: 20px; font-size: 20px;">開始遊戲</button>
+    </div>
+
+    <div id="game-screen" class="screen">
+        <div class="stats">
+            <span id="question-counter">題數：1 / 10</span>
+            <span id="score-counter">分數：0</span>
+        </div>
+        
+        <div class="image-wrapper">
+            <img id="question-image" src="" alt="猜猜我是誰">
+        </div>
+
+        <div class="options-grid" id="options-container">
+            </div>
+    </div>
+
+    <div id="result-screen" class="screen">
+        <h1>遊戲結束！</h1>
+        <p>你的最終得分是：</p>
+        <div class="huge-score" id="final-score">100</div>
+        <button onclick="startGame()">再玩一次</button>
+    </div>
+</div>
+
+<script>
+    // 角色資料庫 (檔名對應您上傳的圖片)
+    const characters = [
+        { name: '布丁狗', src: '2.jpg' },
+        { name: '馬卡龍', src: '3.jpg' },
+        { name: '椰子', src: '4.jpg' },
+        { name: '香草', src: '5.jpg' },
+        { name: '楓糖', src: '6.jpg' },
+        { name: '卡士達', src: '7.jpg' },
+        { name: '馬芬', src: '8.jpg' },
+        { name: '培果', src: '9.jpg' },
+        { name: '司康', src: '10.jpg' }
+    ];
+
+    // 遊戲狀態變數
+    let currentQuestionIndex = 0;
+    let score = 0;
+    const totalQuestions = 10;
+    let currentCorrectAnswer = "";
+
+    // DOM 元素
+    const startScreen = document.getElementById('start-screen');
+    const gameScreen = document.getElementById('game-screen');
+    const resultScreen = document.getElementById('result-screen');
+    const questionImage = document.getElementById('question-image');
+    const optionsContainer = document.getElementById('options-container');
+    const questionCounterDisplay = document.getElementById('question-counter');
+    const scoreCounterDisplay = document.getElementById('score-counter');
+    const finalScoreDisplay = document.getElementById('final-score');
+
+    // 畫面切換控制
+    function showScreen(screenElement) {
+        startScreen.classList.remove('active');
+        gameScreen.classList.remove('active');
+        resultScreen.classList.remove('active');
+        screenElement.classList.add('active');
+    }
+
+    // 開始遊戲初始化
+    function startGame() {
+        currentQuestionIndex = 0;
+        score = 0;
+        updateStats();
+        showScreen(gameScreen);
+        loadNextQuestion();
+    }
+
+    // 載入下一題
+    function loadNextQuestion() {
+        if (currentQuestionIndex >= totalQuestions) {
+            endGame();
+            return;
+        }
+
+        currentQuestionIndex++;
+        updateStats();
+
+        // 1. 隨機抽選一位角色作為正確答案
+        const targetChar = characters[Math.floor(Math.random() * characters.length)];
+        currentCorrectAnswer = targetChar.name;
+        questionImage.src = targetChar.src;
+
+        // 2. 準備選項：1個正確答案 + 3個錯誤答案
+        let options = [targetChar.name];
+        
+        // 過濾掉正確答案，剩下的角色洗牌
+        let wrongCharacters = characters.filter(c => c.name !== targetChar.name);
+        wrongCharacters = wrongCharacters.sort(() => 0.5 - Math.random());
+        
+        // 抓取前 3 個當作錯誤選項
+        for (let i = 0; i < 3; i++) {
+            options.push(wrongCharacters[i].name);
+        }
+
+        // 3. 把 4 個選項再次洗牌，打亂正確答案的位置
+        options = options.sort(() => 0.5 - Math.random());
+
+        // 4. 渲染按鈕到畫面上
+        optionsContainer.innerHTML = '';
+        options.forEach(optionName => {
+            const btn = document.createElement('button');
+            btn.innerText = optionName;
+            btn.onclick = () => checkAnswer(btn, optionName);
+            optionsContainer.appendChild(btn);
+        });
+    }
+
+    // 檢查答案
+    function checkAnswer(clickedButton, selectedName) {
+        // 鎖定所有按鈕，防止狂點
+        const allButtons = optionsContainer.querySelectorAll('button');
+        allButtons.forEach(btn => btn.disabled = true);
+
+        if (selectedName === currentCorrectAnswer) {
+            // 答對了
+            clickedButton.classList.add('correct');
+            score += 10;
+            updateStats();
+        } else {
+            // 答錯了
+            clickedButton.classList.add('wrong');
+            // 標示出正確答案
+            allButtons.forEach(btn => {
+                if (btn.innerText === currentCorrectAnswer) {
+                    btn.classList.add('correct');
+                }
+            });
+        }
+
+        // 停頓 1 秒後自動換下一題
+        setTimeout(() => {
+            loadNextQuestion();
+        }, 1000);
+    }
+
+    // 更新左上與右上的計分板
+    function updateStats() {
+        questionCounterDisplay.innerText = `題數：${Math.min(currentQuestionIndex, totalQuestions)} / ${totalQuestions}`;
+        scoreCounterDisplay.innerText = `分數：${score}`;
+    }
+
+    // 遊戲結束
+    function endGame() {
+        finalScoreDisplay.innerText = score;
+        showScreen(resultScreen);
+    }
+</script>
+
+</body>
+</html>
